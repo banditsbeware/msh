@@ -1,2 +1,2 @@
-# shell-assignment
+# msh >
 cse3320 shell assignment
