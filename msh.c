@@ -143,7 +143,7 @@ int main() {
     // look up command from history
     if (cmd_str[0] == '!') {
 
-        // assume clean input...
+        // convert string to integer (unsafely?)
         int n = atoi(&cmd_str[1]);
 
         // store the pointer returned so it can be freed
@@ -154,8 +154,10 @@ int main() {
             printf("Command not in history.\n\n");
             continue;
         }
+
         // place retrieved command into cmd_str and continue to handling
         strcpy(cmd_str, cmd);
+
         // free the string pointed to by cmd
         free(cmd);
     }
@@ -177,11 +179,11 @@ int main() {
     while (((argument_ptr = strsep(&working_str, WHITESPACE)) != NULL) && 
               (token_count<MAX_NUM_ARGUMENTS)) {
 
-      token[token_count] = strndup(argument_ptr, MAX_COMMAND_SIZE);
+        token[token_count] = strndup(argument_ptr, MAX_COMMAND_SIZE);
 
-      if(strlen(token[token_count]) == 0 ) token[token_count] = NULL;
+        if(strlen(token[token_count]) == 0 ) token[token_count] = NULL;
 
-      token_count++;
+        token_count++;
     }
 
     free(working_root);
