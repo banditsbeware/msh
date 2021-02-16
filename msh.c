@@ -18,19 +18,19 @@ for the "Shell" assignment
 #include <string.h>
 #include <signal.h>
 
-#define WHITESPACE " \t\n"      // Delimiters for command tokenization
+#define WHITESPACE " \t\n"      // delimiters for command tokenization
 
-#define MAX_COMMAND_SIZE 255    // The maximum command-line size
+#define MAX_COMMAND_SIZE 255    // the maximum command size
 
-#define MAX_NUM_ARGUMENTS 10    // Mav shell only supports five arguments
+#define MAX_NUM_ARGUMENTS 10    // mav shell only supports five arguments
 
-#define MAX_HISTORY_LENGTH 5   // Maximum number of commands to store in history
+#define MAX_HISTORY_LENGTH 5   // maximum number of commands to store in history
 
-/*
-node: struct to hold history data in linked list
-head will point to the oldest command, and each node will point to a more recent command.
-some commands (cd, pidlist) will have pid = NULL, in which case they will be skipped by pidlist.
-*/
+// node: struct to hold history data in linked list
+// - head will point to the oldest command, and each node 
+//   will point to a more recent command.
+// - some commands (cd, pidlist) will have pid = NULL, in which case
+//   they will be skipped by pidlist.
 typedef struct node
 {
   pid_t pid;
@@ -39,47 +39,65 @@ typedef struct node
 } node;
 
 // store a new command in the history list starting at head
-//   if, after adding a new command, the length of history exceeds MAX_HISTORY_LENGTH,
+// - if, after adding a new command, the length of history is MAX_HISTORY_LENGTH,
 //   the oldest history entry will be freed and head will point to the second-oldest.
-void store_command(node *head, node *new)
+// - head is passed in as a double pointer so that the function can modify it.
+void store_command(node **head, char *cmd, int pid)
 {
-    // length starts at 1 since there's no way to 
-    // run this method without issuing a command
-    int length = 1;
-    node *iter = head;
-    while (iter->next != NULL) 
-    {
-        iter = iter->next;
-        length++;
-    }
-    iter->next = new;
+    // set up the new node with its own memory location
+    node *new = (node*) malloc(sizeof(node));
+    strcpy(new->cmd, cmd);  // copy command string into node memory
+    new->pid = pid;         // copy pid
+    new->next = NULL;       // set pointer to NULL to clear junk
+    
+    // if head is NULL, then history is empty
+    // point head to the new entry
+    if (*head == NULL) *head = new;
 
-    if (length > MAX_HISTORY_LENGTH)
-    {
-        node *new_head = head->next;
-        free(head);
-        head = new_head->next;
-        printf("head advanced to %s", head->cmd);
+    // otherwise, add the new element to the end
+    else
+    { 
+        // length starts at 1 since the 0 case is handled above
+        int length = 1;
+        node *iter = *head;
+        
+        // traverse the list & count entries
+        while (iter->next != NULL) 
+        {
+            iter = iter->next;
+            length++;
+        }
+
+        // add the new entry to end of the list
+        iter->next = new;
+
+        if (length == MAX_HISTORY_LENGTH)
+        {
+            node *new_head = (*head)->next; // store second-oldest
+            free(*head);                    // "delete" oldest command
+            *head = new_head;               // reassign head
+        }
     }
 }
 
 // output history to console
 //   info = 1 will print all commands
-//   info = 0 will print commands which spawned child processes
+//   info = 0 will print PIDs of commands which spawned child processes
 void print_history(node *head, int info) 
 {
+    if (head == NULL) return; // do nothing if history is empty
     int i=0;
     node *iter = head;
-    while (iter->next != NULL)
+    while (iter != NULL)
     {
-        // iterate over linked list
-        iter = iter->next;
-
         // print command string
         if (info) printf("%d: %s", i++, iter->cmd);
 
         // print pid (if nonzero)
         if (!info && iter->pid) printf("%d: %d\n", i++, iter->pid);
+
+        // iterate over linked list
+        iter = iter->next;
     }
 }
 
@@ -90,7 +108,7 @@ int main()
   char *cmd_str = (char*) malloc(MAX_COMMAND_SIZE);
 
   // head will always point to the oldest command in history
-  node *head = (node*) malloc(sizeof(node));
+  node *head = NULL;
 
   while(1)
   {
@@ -102,10 +120,6 @@ int main()
     
     // ignore a blank command
     if (cmd_str[0] == '\n') continue;
-
-    // initialize new command information
-    node *new = (node*) malloc(sizeof(node));
-    pid_t new_entry_pid = 0;
 
     // Parse input
     char *token[MAX_NUM_ARGUMENTS];
@@ -140,6 +154,8 @@ int main()
     // handle cd
     if (strcmp(token[0], "cd") == 0)
     {
+        store_command(&head, cmd_str, 0);
+
         // no arguments given, go to home directory
         if (token[1] == NULL) chdir(getenv("HOME")); 
 
@@ -148,57 +164,30 @@ int main()
 
         // token[1] not NULL and token[2] NULL -> valid cd command
         else chdir(token[1]);
-        
-        // copy command string into new's memory (includes newline)
-        strcpy(new->cmd, cmd_str);
-
-        // new_entry_pid is zero for commands didn't spawn a child process
-        new->pid = 0;
-
-        // store_command will handle history size
-        store_command(head, new);
     }
 
     // handle history
     else if (strcmp(token[0], "history") == 0)
     {
+        store_command(&head, cmd_str, 0);
+
         // too many arguments
         if (token[1] != NULL) printf("history: too many arguments\n\n");
-        else
-        {
-            // copy command string into new's memory (includes newline)
-            strcpy(new->cmd, cmd_str);
 
-            // new_entry_pid is zero for commands didn't spawn a child process
-            new->pid = 0;
-
-            // store_command will handle history size
-            store_command(head, new);
-
-            // passing 1 to print command strings
-            print_history(head, 1);
-        }    
+        // passing 1 to print command strings
+        else print_history(head, 1);
     }
 
     // handle listpids
     else if (strcmp(token[0], "listpids") == 0)
     {
+        store_command(&head, cmd_str, 0);
+
         // too many arguments
         if (token[1] != NULL) printf("listpids: too many arguments\n\n");
-        else
-        {
-            // copy command string into new's memory (includes newline)
-            strcpy(new->cmd, cmd_str);
 
-            // new_entry_pid is zero for commands didn't spawn a child process
-            new->pid = 0;
-
-            // store_command will handle history size
-            store_command(head, new);
-
-            // passing 0 to print PIDs
-            print_history(head, 0);
-        }
+        // passing 0 to print PIDs
+        else print_history(head, 0);
     }
 
     // all other commands handled by fork, wait, exec
@@ -215,9 +204,6 @@ int main()
         // child process    
         else if (pid == 0) 
         {
-            // store pid for history entry
-            new_entry_pid = getpid();
-            
             // if execvp() returns a nonzero value, it failed.
             if (execvp(token[0], token))
             {
@@ -230,21 +216,11 @@ int main()
         // parent process
         else 
         {
-            // save the pid of the spawned process for history record
-            new_entry_pid = pid;
+            store_command(&head, cmd_str, pid);
 
             // wait for child process to complete
             while (wait(&status) != pid);
         }
-
-        // copy command string into new's memory (includes newline)
-        strcpy(new->cmd, cmd_str);
-
-        // new_entry_pid is zero for commands didn't spawn a child process
-        new->pid = new_entry_pid;
-
-        // store_command will handle history size
-        store_command(head, new);
     }
   }
   return 0;
