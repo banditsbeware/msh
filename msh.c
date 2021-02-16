@@ -1,7 +1,7 @@
 /*
 
-david rademacher
-1001469394
+name: david rademacher
+ID:   1001469394
 
 this program is a modified copy of CSE3320/Shell-Assignment/msh.c
 for the "Shell" assignment
@@ -24,15 +24,14 @@ for the "Shell" assignment
 
 #define MAX_NUM_ARGUMENTS 10    // mav shell only supports five arguments
 
-#define MAX_HISTORY_LENGTH 5   // maximum number of commands to store in history
+#define MAX_HISTORY_LENGTH 15   // maximum number of commands to store in history
 
 // node: struct to hold history data in linked list
 // - head will point to the oldest command, and each node 
 //   will point to a more recent command.
-// - some commands (cd, pidlist) will have pid = NULL, in which case
+// - some commands (cd, history, pidlist) will have pid = 0, in which case
 //   they will be skipped by pidlist.
-typedef struct node
-{
+typedef struct node {
   pid_t pid;
   char cmd[MAX_COMMAND_SIZE];
   struct node *next;
@@ -42,8 +41,8 @@ typedef struct node
 // - if, after adding a new command, the length of history is MAX_HISTORY_LENGTH,
 //   the oldest history entry will be freed and head will point to the second-oldest.
 // - head is passed in as a double pointer so that the function can modify it.
-void store_command(node **head, char *cmd, int pid)
-{
+void store_command(node **head, char *cmd, int pid) {
+
     // set up the new node with its own memory location
     node *new = (node*) malloc(sizeof(node));
     strcpy(new->cmd, cmd);  // copy command string into node memory
@@ -55,15 +54,13 @@ void store_command(node **head, char *cmd, int pid)
     if (*head == NULL) *head = new;
 
     // otherwise, add the new element to the end
-    else
-    { 
-        // length starts at 1 since the 0 case is handled above
+    else { 
+        // length starts at 1 because the 0 case is handled above
         int length = 1;
         node *iter = *head;
         
         // traverse the list & count entries
-        while (iter->next != NULL) 
-        {
+        while (iter->next != NULL) {
             iter = iter->next;
             length++;
         }
@@ -71,25 +68,22 @@ void store_command(node **head, char *cmd, int pid)
         // add the new entry to end of the list
         iter->next = new;
 
-        if (length == MAX_HISTORY_LENGTH)
-        {
+        if (length == MAX_HISTORY_LENGTH) {
             node *new_head = (*head)->next; // store second-oldest
-            free(*head);                    // "delete" oldest command
+            free(*head);                    // delete oldest command
             *head = new_head;               // reassign head
         }
     }
 }
 
 // output history to console
-//   info = 1 will print all commands
-//   info = 0 will print PIDs of commands which spawned child processes
-void print_history(node *head, int info) 
-{
+// - info = 1 will print all commands
+// - info = 0 will print PIDs of commands which spawned child processes
+void print_history(node *head, int info) {
     if (head == NULL) return; // do nothing if history is empty
-    int i=0;
+    int i = 0;
     node *iter = head;
-    while (iter != NULL)
-    {
+    while (iter != NULL) {
         // print command string
         if (info) printf("%d: %s", i++, iter->cmd);
 
@@ -101,8 +95,33 @@ void print_history(node *head, int info)
     }
 }
 
-int main()
-{
+// retrieve a command from history
+// - n corresponds to the printed number next to the desired command
+//   as printed by print_history()
+// - returns a pointer to the desired command string
+char *retrieve_command(node *head, int n) {
+
+    if (head == NULL) return NULL; // do nothing if history is empty
+    
+    int index = 0;
+    node *iter = head;
+
+    // command string will be copied into its own memory and should be freed after use
+    char *cmd = (char*) malloc(MAX_COMMAND_SIZE);
+
+    // iterate through history, stopping when the desired command is reached
+    while (iter != NULL) {
+        if (index++ == n) {
+            strcpy(cmd, iter->cmd);
+            return cmd;
+        }
+        iter = iter->next;
+    }
+    // if the loop makes it through the list, n was not found
+    return NULL;
+}
+
+int main() {
 
   // cmd_str accepts input and is overwritten each iteration of the while loop
   char *cmd_str = (char*) malloc(MAX_COMMAND_SIZE);
@@ -110,8 +129,8 @@ int main()
   // head will always point to the oldest command in history
   node *head = NULL;
 
-  while(1)
-  {
+  while(1) {
+
     // Print out the msh prompt
     printf ("[msh] >> ");
 
@@ -120,6 +139,26 @@ int main()
     
     // ignore a blank command
     if (cmd_str[0] == '\n') continue;
+    
+    // look up command from history
+    if (cmd_str[0] == '!') {
+
+        // assume clean input...
+        int n = atoi(&cmd_str[1]);
+
+        // store the pointer returned so it can be freed
+        char *cmd = retrieve_command(head, n);
+
+        // NULL return value means command was not found
+        if (cmd == NULL) {
+            printf("Command not in history.\n\n");
+            continue;
+        }
+        // place retrieved command into cmd_str and continue to handling
+        strcpy(cmd_str, cmd);
+        // free the string pointed to by cmd
+        free(cmd);
+    }
 
     // Parse input
     char *token[MAX_NUM_ARGUMENTS];
@@ -136,15 +175,15 @@ int main()
 
     // Tokenize the input strings with whitespace used as the delimiter
     while (((argument_ptr = strsep(&working_str, WHITESPACE)) != NULL) && 
-              (token_count<MAX_NUM_ARGUMENTS))
-    {
+              (token_count<MAX_NUM_ARGUMENTS)) {
+
       token[token_count] = strndup(argument_ptr, MAX_COMMAND_SIZE);
-      if(strlen(token[token_count]) == 0 )
-      {
-        token[token_count] = NULL;
-      }
-        token_count++;
+
+      if(strlen(token[token_count]) == 0 ) token[token_count] = NULL;
+
+      token_count++;
     }
+
     free(working_root);
 
     // handle exit, quit
@@ -152,8 +191,8 @@ int main()
      || strcmp(token[0], "quit") == 0) exit(0);
 
     // handle cd
-    if (strcmp(token[0], "cd") == 0)
-    {
+    if (strcmp(token[0], "cd") == 0) {
+
         store_command(&head, cmd_str, 0);
 
         // no arguments given, go to home directory
@@ -167,32 +206,30 @@ int main()
     }
 
     // handle history
-    else if (strcmp(token[0], "history") == 0)
-    {
+    else if (strcmp(token[0], "history") == 0) {
+
         store_command(&head, cmd_str, 0);
 
         // too many arguments
         if (token[1] != NULL) printf("history: too many arguments\n\n");
 
-        // passing 1 to print command strings
-        else print_history(head, 1);
+        else print_history(head, 1); // passing 1 to print command strings
     }
 
     // handle listpids
-    else if (strcmp(token[0], "listpids") == 0)
-    {
+    else if (strcmp(token[0], "listpids") == 0) {
+
         store_command(&head, cmd_str, 0);
 
         // too many arguments
         if (token[1] != NULL) printf("listpids: too many arguments\n\n");
 
-        // passing 0 to print PIDs
-        else print_history(head, 0);
+        else print_history(head, 0); // passing 0 to print PIDs
     }
 
     // all other commands handled by fork, wait, exec
-    else
-    {
+    else {
+
         pid_t pid;
         int status;
 
@@ -202,24 +239,22 @@ int main()
         if (pid < 0) printf("fork failed\n");
 
         // child process    
-        else if (pid == 0) 
-        {
-            // if execvp() returns a nonzero value, it failed.
-            if (execvp(token[0], token))
-            {
-                // command not found
+        else if (pid == 0) {
+
+            // if execvp() returns a nonzero value, it failed
+            if (execvp(token[0], token)) {
                 printf("%s: Command not found.\n\n", token[0]);
                 exit(1);
             }
         }
 
         // parent process
-        else 
-        {
+        else {
+
+            // in the parent process, pid stores the PID of the child spawned
             store_command(&head, cmd_str, pid);
 
-            // wait for child process to complete
-            while (wait(&status) != pid);
+            while (wait(&status) != pid); // wait for child process to complete
         }
     }
   }
