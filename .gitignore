@@ -1,2 +1,3 @@
-./msh
+msh
 *.o
+.DS_Store
